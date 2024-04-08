@@ -1,0 +1,26 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "{BA47A2D6-4C95-A010-443A-BCAAA193A063}",
+	"Category": "",
+	"Description": "",
+	"Modules": [
+		{
+			"Name": "Vai",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "ModelingToolsEditorMode",
+			"Enabled": true,
+			"TargetAllowList": [
+				"Editor"
+			]
+		},
+		{
+			"Name": "GameLiftPlugin",
+			"Enabled": true
+		}
+	]
+}
