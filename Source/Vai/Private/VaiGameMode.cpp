@@ -1,19 +1,21 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "VaiGamemode.h"
-#include "VaiCharacter.h"
+#include "FallGameState.h"
+#include "FallPlayerController.h"
 #include "UObject/ConstructorHelpers.h"
 
 #include "GameLiftServerSDK.h"
-#include "GameLiftServerSDKModels.h"
+#include "MoviePlayer.h"
+#include "Engine/StaticMeshActor.h"
 #include "GameFramework/PlayerState.h"
-
-#include "GenericPlatform/GenericPlatformOutputDevices.h"
+#include "Kismet/GameplayStatics.h"
 
 DEFINE_LOG_CATEGORY(GameServerLog);
 
 AVaiGameMode::AVaiGameMode()
 {
+	bUseSeamlessTravel = true;
 	// set default pawn class to our Blueprinted character
 	static ConstructorHelpers::FClassFinder<APawn> PlayerPawnBPClass(TEXT("/Game/ThirdPerson/Blueprints/BP_ThirdPersonCharacter"));
 	if (PlayerPawnBPClass.Class != NULL)
@@ -47,28 +49,113 @@ int32 AVaiGameMode::GetNumSpectators()
 			PlayerCount++;
 		}
 	}
+	
 	return PlayerCount;
 }
 
-void AVaiGameMode::ResetLevel()
+void AVaiGameMode::PostLogin(APlayerController* NewPlayer)
 {
-	Super::ResetLevel();
+	Super::PostLogin(NewPlayer);
 
-	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	if (FallGameState)
+	if (FallGameState->Stage != EGameStage::Lobby)
 	{
-		RestartPlayer(Iterator->Get());
+		AFallPlayerController* FallPlayerController = Cast<AFallPlayerController>(NewPlayer);
+		if (FallPlayerController)
+			FallPlayerController->SetPlayerSpectating();
+	}
+	if (GetNumPlayers() >= 2 && FallGameState->Stage == EGameStage::Lobby)
+		ChangeStage(EGameStage::Starting);
+
+}
+
+void AVaiGameMode::Logout(AController* Exiting)
+{
+	Super::Logout(Exiting);
+
+	if (GetNumPlayers() < 2 && FallGameState->Stage == EGameStage::Starting)
+	{
+		FallGameState->Stage = EGameStage::Lobby;
+		GetWorldTimerManager().ClearTimer(RemainingTimeHandle);
 	}
 }
 
+void AVaiGameMode::CheckMatchEnding()
+{
+	if (GetNumPlayers() <= 1 && FallGameState->Stage == EGameStage::Playing)
+	{
+		FallGameState->Stage = EGameStage::Finishing;
+		
+		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		{
+			AFallPlayerController* PlayerActor = Cast<AFallPlayerController>(Iterator->Get());
+			PlayerActor->ClientSetControlsEnabled(false);
+			if (PlayerActor && PlayerActor->PlayerState && !PlayerActor->PlayerState->IsSpectator() && !PlayerActor->PlayerState->IsOnlyASpectator()) 
+			{
+				PlayerActor->GetPawn()->Destroy();
+			}
+		}
+
+		FTimerHandle Handle;
+		GetWorldTimerManager().SetTimer(Handle, FTimerDelegate::CreateLambda([this]()
+		{
+			GetWorld()->ServerTravel(TEXT("ServerMap"), true);
+		}),4, false);
+	}
+}
+
+void AVaiGameMode::RemoveLobby_Implementation()
+{
+	TArray<AActor*> OutActors;
+	UGameplayStatics::GetAllActorsOfClassWithTag(this, AStaticMeshActor::StaticClass(), TEXT("LobbyBlock"), OutActors);
+	for (AActor* Actor : OutActors)
+	{
+		Actor->Destroy();
+	}
+}
+
+void AVaiGameMode::GetSeamlessTravelActorList(bool bToTransition, TArray<AActor*>& ActorList)
+{
+	Super::GetSeamlessTravelActorList(bToTransition, ActorList);
+	
+	if (bToTransition)
+	{
+		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		{
+			AFallPlayerController* PlayerActor = Cast<AFallPlayerController>(Iterator->Get());
+			if (PlayerActor)
+			{
+				ActorList.Add(PlayerActor);
+			}
+		}
+	}
+}
 
 void AVaiGameMode::BeginPlay()
 {
 	Super::BeginPlay();
 
+	FallGameState = Cast<AFallGameState>(GameState);
+	
+	int32 PlayerCount = 0;
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		AFallPlayerController* PlayerActor = Cast<AFallPlayerController>(Iterator->Get());
+		if (PlayerActor)
+		{
+			PlayerActor->SetPlayerPlaying();
+			PlayerCount++;
+		}
+	}
+	
+	if (GetNumPlayers() >= 2)
+	{
+		ChangeStage(EGameStage::Starting);
+	}
+
 #if WITH_GAMELIFT
 	InitGameLift();
 #endif
-	
 }
 
 void AVaiGameMode::InitGameLift()
@@ -248,4 +335,23 @@ void AVaiGameMode::InitGameLift()
  
     UE_LOG(GameServerLog, Log, TEXT("InitGameLift completed!"));
 #endif
+}
+
+void AVaiGameMode::ChangeStage(EGameStage NewStage)
+{
+	if (NewStage == EGameStage::Starting)
+	{
+		FallGameState->Stage = EGameStage::Starting;
+		FallGameState->TimeRemainingToPlay = 3;
+		GetWorldTimerManager().SetTimer(RemainingTimeHandle, FTimerDelegate::CreateLambda([this]()
+		{
+			FallGameState->TimeRemainingToPlay--;
+			if (FallGameState->TimeRemainingToPlay <= 0)
+			{
+				FallGameState->Stage = EGameStage::Playing;
+				GetWorldTimerManager().ClearTimer(RemainingTimeHandle);
+				RemoveLobby();
+			}
+		}),1,true);
+	}
 }

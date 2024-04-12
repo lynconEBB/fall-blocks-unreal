@@ -1,1 +1,1 @@
-D:\UE_5.3\Engine\Binaries\Win64\UnrealEditor.exe D:\fall-blocks-unreal\Vai.uproject -game -windowed -resx=800 -resy=450 -log
+D:\UnrealEngine-5.3\Engine\Binaries\Win64\UnrealEditor.exe D:\fall-blocks-unreal\Vai.uproject -game -windowed -resx=800 -resy=450

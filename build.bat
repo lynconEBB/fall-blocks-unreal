@@ -1,1 +1,1 @@
-D:\UE_5.3\Engine\Build\BatchFiles\Build.bat VaiEditor Win64 Development -Project="D:\fall-blocks-unreal\Vai.uproject" -WaitMutex -FromMsBuild
+D:\UnrealEngine-5.3\Engine\Build\BatchFiles\Build.bat VaiEditor Win64 Development -Project="D:\fall-blocks-unreal\Vai.uproject" -WaitMutex -FromMsBuild

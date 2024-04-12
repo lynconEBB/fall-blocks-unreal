@@ -14,4 +14,8 @@ public:
 	
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
 	void SetPlayerSpectating();
+
+	UFUNCTION(Client, Reliable, BlueprintCallable)
+	void ClientSetControlsEnabled(bool bEnabled);
+	virtual void GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& ActorList) override;
 };
