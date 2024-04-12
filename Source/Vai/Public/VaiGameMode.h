@@ -15,6 +15,11 @@ class AVaiGameMode : public AGameModeBase
 
 public:
 	AVaiGameMode();
+	virtual int32 GetNumPlayers() override;
+	virtual int32 GetNumSpectators() override;
+
+	virtual void ResetLevel() override;
+	
 protected:
 	virtual void BeginPlay() override;
 private:

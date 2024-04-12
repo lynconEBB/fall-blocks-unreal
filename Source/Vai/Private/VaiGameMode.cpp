@@ -6,6 +6,7 @@
 
 #include "GameLiftServerSDK.h"
 #include "GameLiftServerSDKModels.h"
+#include "GameFramework/PlayerState.h"
 
 #include "GenericPlatform/GenericPlatformOutputDevices.h"
 
@@ -20,6 +21,45 @@ AVaiGameMode::AVaiGameMode()
 		DefaultPawnClass = PlayerPawnBPClass.Class;
 	}
 }
+
+int32 AVaiGameMode::GetNumPlayers()
+{
+	int32 PlayerCount = 0;
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		APlayerController* PlayerActor = Iterator->Get();
+		if (PlayerActor && PlayerActor->PlayerState && !PlayerActor->PlayerState->IsSpectator() && !PlayerActor->PlayerState->IsOnlyASpectator())
+		{
+			PlayerCount++;
+		}
+	}
+	return PlayerCount;
+}
+
+int32 AVaiGameMode::GetNumSpectators()
+{
+	int32 PlayerCount = 0;
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		APlayerController* PlayerActor = Iterator->Get();
+		if (PlayerActor && PlayerActor->PlayerState && (PlayerActor->PlayerState->IsSpectator() || PlayerActor->PlayerState->IsOnlyASpectator()))
+		{
+			PlayerCount++;
+		}
+	}
+	return PlayerCount;
+}
+
+void AVaiGameMode::ResetLevel()
+{
+	Super::ResetLevel();
+
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		RestartPlayer(Iterator->Get());
+	}
+}
+
 
 void AVaiGameMode::BeginPlay()
 {
